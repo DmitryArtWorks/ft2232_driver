@@ -8,8 +8,8 @@
 // #include <minwindef.h>
 
 
-#define PacketSize 1024
-#define NumSamples 10000000
+#define PacketSize 512
+#define NumSamples 8192
 #define PacketCoef 1 // (пока 1, но должно быть 2) потому что один отсчет будет преобразован в два 8-битных отсчета
 #define rxTotal NumSamples*PacketCoef
 
@@ -21,11 +21,11 @@ UCHAR LatTimer = 16;
     DWORD sig1 = 0x00000000;
     DWORD sig2 = 0xFFFFFFFF;
 
-char *rxBuffer;
+// char *rxBuffer;
 DWORD EventWord;
 DWORD rxBytes;
 DWORD txBytes;
-LPDWORD BytesReceived;
+DWORD BytesReceived;
 static FT_PROGRAM_DATA datastruct;
 PUCHAR gotBitMode;
 
@@ -45,7 +45,10 @@ int main(){
     unsigned long int numBytes = 0;
     // Установка обработчика сигнала SIGINT
     signal(SIGINT, handle_sigint);
-    rxBuffer = (char * )malloc(0x10000 * sizeof(char)*2);
+    char* rxBuffer = (char* )malloc(65536 * sizeof(char)*2);
+    memset(rxBuffer, 0, 65536 * sizeof(char)*2);
+    // for (int i = 0; i < 2; i++) printf("%.2s\n", rxBuffer[i]);
+
     if (rxBuffer == NULL) exit(1);
     
     if ((fp = fopen("test.bin", "wb"))==NULL) {
@@ -66,7 +69,7 @@ int main(){
     // CODE STARTS HERE  // 
     // // // // // // // //
 
-    printEEPdata(Handle1);
+    // printEEPdata(Handle1);
     
     Mode = 0x00; // reset mode
     myftStatus = FT_SetBitMode(Handle1, MASK, Mode);
@@ -85,7 +88,7 @@ int main(){
     else{
         // myftStatus = FT_GetBitMode(Handle1, gotBitMode);
         // if (!FT_SUCCESS(myftStatus)){
-        //     printf("error #%i while setting sync FIFO mode\n", myftStatus);
+        //     printf("error #%i while trying to get bitmode\n", myftStatus);
         // goto endProg;
         // }
         // printf("received bitmode: ", gotBitMode);
@@ -95,7 +98,14 @@ int main(){
         printf("error #%i while setting latency timer\n", myftStatus);
         goto endProg;
         }
-        myftStatus = FT_SetUSBParameters(Handle1, 0x10000, 0x10000); //TODO: ОПРЕДЕЛИТЬСЯ С РАЗМЕРАМИ БУФЕРОВ, МБ ОНИ СЛИШКОМ БОЛЬШИЕ
+
+        myftStatus = FT_SetTimeouts(Handle1, 1000, 1000);
+        if (!FT_SUCCESS(myftStatus)){
+        printf("error #%i while setting timeouts\n", myftStatus);
+        goto endProg;
+        }
+
+        myftStatus = FT_SetUSBParameters(Handle1, 0x01000, 0x01000); //TODO: ОПРЕДЕЛИТЬСЯ С РАЗМЕРАМИ БУФЕРОВ, МБ ОНИ СЛИШКОМ БОЛЬШИЕ
         if (!FT_SUCCESS(myftStatus)){
         printf("error #%i while setting USB parameters\n", myftStatus);
         goto endProg;
@@ -106,7 +116,7 @@ int main(){
         goto endProg;
         }
     }
-    printEEPdata(Handle1);
+    // printEEPdata(Handle1);
     
     // printf("");
     printf("Trying to receive bytes\n");
@@ -119,7 +129,9 @@ int main(){
             myftStatus = FT_GetStatus(Handle1, &rxBytes, &txBytes, &EventWord);
             // printf("available %lu bytes\n", txBytes);
             if ( (FT_SUCCESS(myftStatus)) && (rxBytes >= PacketSize) ){
-                myftStatus = FT_Read(Handle1, rxBuffer, rxBytes, BytesReceived);
+                // myftStatus = FT_GetQueueStatus(Handle1, &rxBytes);
+                myftStatus = FT_Write(Handle1, rxBuffer, rxBytes, &BytesReceived);
+                // myftStatus = FT_Read(Handle1, rxBuffer, rxBytes, &BytesReceived);
                 
                 // if ( !(FT_SUCCESS(myftStatus)) ){
                 //     printf("error #%i while reading data from buffer\n", myftStatus);
@@ -127,9 +139,11 @@ int main(){
                 //     //return 1;
                 // }
                 // else{
-                    size_t NumWrite = fwrite(rxBuffer, sizeof(rxBuffer[0]), rxBytes, fp);
+                
+
+                    NumWrite = fwrite(rxBuffer, sizeof(char), BytesReceived, fp);
                     // printf("written %ld bytes, %ld expected", NumWrite, rxBytes);
-                    numBytes += rxBytes;
+                    numBytes += BytesReceived;
                 // }
             }
         
@@ -142,6 +156,8 @@ int main(){
     }
     else printf("Device closed successful, code %ld\n", myftStatus);
     fclose(fp);
+    free(rxBuffer);
+
     
     return 0;
 }
@@ -193,5 +209,8 @@ void printEEPdata(FT_HANDLE Handle)
     printf("this 2 values is nonzero if mode is 245 FIFO and 245 FIFO CPU target respectievly: %x  , %x \n", (int)datastruct.IFBIsFifo7, (int)datastruct.IFBIsFifoTar7);
     printf("this 2 values is nonzero if A and B ports is to use VCP drivers: %x  , %x \n", datastruct.AIsVCP7, datastruct.BIsVCP7);
 
-
+    free(datastruct.Manufacturer);
+    free(datastruct.ManufacturerId);
+    free(datastruct.Description);
+    free(datastruct.SerialNumber);
 }
