@@ -1,0 +1,8 @@
+[
+{
+  "directory": "C:/Users/dmitr/Desktop/ft2232_driver/build",
+  "command": "C:\\msys64\\ucrt64\\bin\\gcc.exe  @CMakeFiles/main_file.dir/includes_C.rsp -g -o CMakeFiles\\main_file.dir\\main.c.obj -c C:\\Users\\dmitr\\Desktop\\ft2232_driver\\main.c",
+  "file": "C:/Users/dmitr/Desktop/ft2232_driver/main.c",
+  "output": "CMakeFiles/main_file.dir/main.c.obj"
+}
+]
