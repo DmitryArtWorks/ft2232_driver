@@ -9,7 +9,7 @@
 
 
 #define PacketSize 512
-#define NumSamples 8192
+#define NumSamples 1000000
 #define PacketCoef 1 // (пока 1, но должно быть 2) потому что один отсчет будет преобразован в два 8-битных отсчета
 #define rxTotal NumSamples*PacketCoef
 
@@ -22,10 +22,11 @@ UCHAR LatTimer = 16;
     DWORD sig2 = 0xFFFFFFFF;
 
 // char *rxBuffer;
+
 DWORD EventWord;
 DWORD rxBytes;
 DWORD txBytes;
-DWORD BytesReceived;
+LPDWORD BytesReceived;
 static FT_PROGRAM_DATA datastruct;
 PUCHAR gotBitMode;
 
@@ -40,14 +41,15 @@ void handle_sigint(int sig) {
 }
 
 int main(){
-    
+    BytesReceived = (LPDWORD)malloc(sizeof(LPDWORD));
+    gotBitMode = (PUCHAR)malloc(sizeof(PUCHAR));
     size_t NumWrite = 0;
     unsigned long int numBytes = 0;
     // Установка обработчика сигнала SIGINT
     signal(SIGINT, handle_sigint);
-    char* rxBuffer = (char* )malloc(65536 * sizeof(char)*2);
-    memset(rxBuffer, 0, 65536 * sizeof(char)*2);
-    // for (int i = 0; i < 2; i++) printf("%.2s\n", rxBuffer[i]);
+    LPVOID rxBuffer = (LPVOID )malloc(65536 * sizeof(char)*2);
+    memset(rxBuffer, (unsigned char)0, 65536 * sizeof(char)*2);
+    
 
     if (rxBuffer == NULL) exit(1);
     
@@ -69,10 +71,10 @@ int main(){
     // CODE STARTS HERE  // 
     // // // // // // // //
 
-    // printEEPdata(Handle1);
+    printEEPdata(Handle1);
     
     Mode = 0x00; // reset mode
-    myftStatus = FT_SetBitMode(Handle1, MASK, Mode);
+    myftStatus = FT_SetBitMode(Handle1, MASK, FT_BITMODE_RESET);
     if (!FT_SUCCESS(myftStatus)){
         printf("error #%i while resetting\n", myftStatus);
         goto endProg;
@@ -80,18 +82,18 @@ int main(){
 
     delay(250);
     Mode = 0x40; // sync FIFO mode
-    myftStatus = FT_SetBitMode(Handle1, MASK, Mode);
+    myftStatus = FT_SetBitMode(Handle1, MASK, FT_BITMODE_SYNC_FIFO);
     if (!FT_SUCCESS(myftStatus)){
         printf("error #%i while setting sync FIFO mode\n", myftStatus);
         goto endProg;
     }
     else{
-        // myftStatus = FT_GetBitMode(Handle1, gotBitMode);
+        myftStatus = FT_GetBitMode(Handle1, gotBitMode);
         // if (!FT_SUCCESS(myftStatus)){
         //     printf("error #%i while trying to get bitmode\n", myftStatus);
         // goto endProg;
         // }
-        // printf("received bitmode: ", gotBitMode);
+        printf("received bitmode: %p\n", gotBitMode);
         printf("setting up some options after status %i\n", myftStatus);
         myftStatus = FT_SetLatencyTimer(Handle1, LatTimer);
         if (!FT_SUCCESS(myftStatus)){
@@ -105,7 +107,7 @@ int main(){
         goto endProg;
         }
 
-        myftStatus = FT_SetUSBParameters(Handle1, 0x01000, 0x01000); //TODO: ОПРЕДЕЛИТЬСЯ С РАЗМЕРАМИ БУФЕРОВ, МБ ОНИ СЛИШКОМ БОЛЬШИЕ
+        myftStatus = FT_SetUSBParameters(Handle1, 0x10000, 0x10000); //TODO: ОПРЕДЕЛИТЬСЯ С РАЗМЕРАМИ БУФЕРОВ, МБ ОНИ СЛИШКОМ БОЛЬШИЕ
         if (!FT_SUCCESS(myftStatus)){
         printf("error #%i while setting USB parameters\n", myftStatus);
         goto endProg;
@@ -116,7 +118,7 @@ int main(){
         goto endProg;
         }
     }
-    // printEEPdata(Handle1);
+    printEEPdata(Handle1);
     
     // printf("");
     printf("Trying to receive bytes\n");
@@ -129,9 +131,9 @@ int main(){
             myftStatus = FT_GetStatus(Handle1, &rxBytes, &txBytes, &EventWord);
             // printf("available %lu bytes\n", txBytes);
             if ( (FT_SUCCESS(myftStatus)) && (rxBytes >= PacketSize) ){
-                // myftStatus = FT_GetQueueStatus(Handle1, &rxBytes);
-                myftStatus = FT_Write(Handle1, rxBuffer, rxBytes, &BytesReceived);
-                // myftStatus = FT_Read(Handle1, rxBuffer, rxBytes, &BytesReceived);
+                
+                // myftStatus = FT_Write(Handle1, rxBuffer, rxBytes, BytesReceived);
+                myftStatus = FT_Read(Handle1, rxBuffer, rxBytes, BytesReceived);
                 
                 // if ( !(FT_SUCCESS(myftStatus)) ){
                 //     printf("error #%i while reading data from buffer\n", myftStatus);
@@ -139,11 +141,9 @@ int main(){
                 //     //return 1;
                 // }
                 // else{
-                
-
-                    NumWrite = fwrite(rxBuffer, sizeof(char), BytesReceived, fp);
+                    NumWrite = fwrite(rxBuffer, sizeof(char), *BytesReceived, fp);
                     // printf("written %ld bytes, %ld expected", NumWrite, rxBytes);
-                    numBytes += BytesReceived;
+                    numBytes += rxBytes;
                 // }
             }
         
