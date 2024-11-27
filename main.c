@@ -8,7 +8,7 @@
 #include "main.h"
 
 #define PacketSize 512
-#define NumSamples 1000000
+#define NumSamples 200000000
 #define PacketCoef 1 // (пока 1, но должно быть 2) потому что один отсчет будет преобразован в два 8-битных отсчета
 #define rxTotal NumSamples*PacketCoef
 
@@ -73,7 +73,7 @@ int main(){
                     printf("Reception interrupted by user.\n");
                     break; // Выход из цикла при установке флага
                 }
-                myftStatus = FT_GetStatus(Handle1, &rxBytes, &txBytes, &EventWord);
+                myftStatus = FT_GetStatus(Handle1, &rxBytes, &txBytes, &EventWord); // TODO: мб лишнее, поскольку, видимо, rxBytes описывает размер rxQueue, которая в цикле не меняется
                 // printf("available %lu bytes\n", txBytes);
                 if (FT_SUCCESS(myftStatus) && (rxBytes >= PacketSize)){
                     // несмотря на все затирки из даташитов, что режим Read - это чтение данных 
@@ -188,10 +188,17 @@ int setupFTdevice(){
         printf("error #%i while setting USB parameters\n", myftStatus);
         return 1;
         }
+
         myftStatus = FT_SetFlowControl(Handle1, FT_FLOW_RTS_CTS, 0, 0);
         if (!FT_SUCCESS(myftStatus)){
         printf("error #%i while setting flow control\n", myftStatus);
         return 1;
         }
+
+        // myftStatus = FT_Purge(Handle1, FT_PURGE_RX);
+        // if (!FT_SUCCESS(myftStatus)){
+        // printf("error #%i while purging buffers\n", myftStatus);
+        // return 1;
+        // }
     return 0;
 }
