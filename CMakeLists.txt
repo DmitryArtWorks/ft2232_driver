@@ -1,7 +1,12 @@
 cmake_minimum_required(VERSION 3.18)	
+
 set(CMAKE_C_COMPILER "gcc")
 set(CMAKE_CXX_COMPILER "g++")
+
+set(CMAKE_BUILD_TYPE Release)
+
 project(myDriverFTDI)
+
 # include_directories(C:/Windows/System32)
 include_directories(ftSrc)
 

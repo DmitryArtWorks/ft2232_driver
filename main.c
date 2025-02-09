@@ -9,7 +9,7 @@
 
 
 #define PacketSize 512
-#define NumSamples 1000000
+#define NumSamples 4000000000
 #define PacketCoef 1 // (пока 1, но должно быть 2) потому что один отсчет будет преобразован в два 8-битных отсчета
 #define rxTotal NumSamples*PacketCoef
 
