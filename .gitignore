@@ -1,4 +1,4 @@
-/build/
+/build/**
 main_file.exe
 test.bin
-/.vscode
+/.vscode/**

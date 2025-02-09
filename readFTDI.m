@@ -20,11 +20,12 @@ distV = single.empty;
        
     dd2plt = diff(d2plt);
     indList = find(dd2plt ~= 1 & dd2plt ~= -255);
+    indListL = length(indList);
     valuesList = unique(dd2plt);
 
     distL = cat(1, distL, diff(indList)); 
     distV = unique(distL);
-    ind = 1600;
+    ind = 2;
     plot(data(indList(ind)-1e3:indList(ind)+1e3))
     i = i + 1;
 % end

@@ -9,7 +9,7 @@
 
 
 #define PacketSize 512
-#define NumSamples 4000000000
+#define NumSamples 1000000000
 #define PacketCoef 1 // (пока 1, но должно быть 2) потому что один отсчет будет преобразован в два 8-битных отсчета
 #define rxTotal NumSamples*PacketCoef
 
@@ -49,7 +49,7 @@ int main(){
     signal(SIGINT, handle_sigint);
     LPVOID rxBuffer = (LPVOID )malloc(65536 * sizeof(char)*2);
     memset(rxBuffer, (unsigned char)0, 65536 * sizeof(char)*2);
-    
+    LPVOID dataBuffer = (LPVOID) malloc(1024 * 1024 * 512 * sizeof(char)); // 4 ГБ буффер
 
     if (rxBuffer == NULL) exit(1);
     
@@ -118,12 +118,12 @@ int main(){
         goto endProg;
         }
     }
-    printEEPdata(Handle1);
+    // printEEPdata(Handle1);
     
     // printf("");
     printf("Trying to receive bytes\n");
     
-    while(numBytes < rxTotal){
+    while(numBytes < 1024 * 1024 * 512 * sizeof(char)){
             if (stop) {
                 printf("Reception interrupted by user.\n");
                 break; // Выход из цикла при установке флага
@@ -141,13 +141,15 @@ int main(){
                 //     //return 1;
                 // }
                 // else{
-                    NumWrite = fwrite(rxBuffer, sizeof(char), *BytesReceived, fp);
+                    // NumWrite = fwrite(rxBuffer, sizeof(char), *BytesReceived, fp);
                     // printf("written %ld bytes, %ld expected", NumWrite, rxBytes);
+                    memcpy(dataBuffer + numBytes, rxBuffer, BytesReceived);
                     numBytes += rxBytes;
                 // }
             }
         
     }
+    NumWrite = fwrite(dataBuffer, sizeof(char), 1024 * 1024 * 512 * sizeof(char), fp);
     endProg:
     // CLOSING DEVICE
     myftStatus = FT_Close(Handle1);
