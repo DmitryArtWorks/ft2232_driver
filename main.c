@@ -8,7 +8,7 @@
 // #include <minwindef.h>
 
 
-#define PacketSize 512
+#define PacketSize 256
 #define NumSamples 1000000000
 #define PacketCoef 1 // (пока 1, но должно быть 2) потому что один отсчет будет преобразован в два 8-битных отсчета
 #define rxTotal NumSamples*PacketCoef
@@ -34,6 +34,7 @@ FILE *fp;
 void printEEPdata(FT_HANDLE Handle);
 void delay(int milliseconds);
 volatile sig_atomic_t stop = 0;
+size_t total_size = (size_t)1024 * (size_t)1024 * (size_t)1024 * 2;
 
 // Обработчик сигнала SIGINT
 void handle_sigint(int sig) {
@@ -47,10 +48,11 @@ int main(){
     unsigned long int numBytes = 0;
     // Установка обработчика сигнала SIGINT
     signal(SIGINT, handle_sigint);
-    LPVOID rxBuffer = (LPVOID )malloc(65536 * sizeof(char)*2);
-    memset(rxBuffer, (unsigned char)0, 65536 * sizeof(char)*2);
-    LPVOID dataBuffer = (LPVOID) malloc(1024 * 1024 * 512 * sizeof(char)); // 4 ГБ буффер
-
+    LPVOID rxBuffer   = (LPVOID ) _aligned_malloc(65536 * sizeof(unsigned char)*PacketCoef + 1024, 64);
+    memset(rxBuffer, (unsigned char)0, 65536 * sizeof(unsigned char)*PacketCoef + 1024);
+    LPVOID dataBuffer = (LPVOID) _aligned_malloc(total_size * sizeof(unsigned char)*PacketCoef + 65536, 64); // буфер
+    memset(dataBuffer, (unsigned char)0, total_size * sizeof(unsigned char)*PacketCoef + 65536);
+    
     if (rxBuffer == NULL) exit(1);
     
     if ((fp = fopen("test.bin", "wb"))==NULL) {
@@ -112,54 +114,49 @@ int main(){
         printf("error #%i while setting USB parameters\n", myftStatus);
         goto endProg;
         }
-        myftStatus = FT_SetFlowControl(Handle1, FT_FLOW_RTS_CTS, 0, 0);
-        if (!FT_SUCCESS(myftStatus)){
-        printf("error #%i while setting flow control\n", myftStatus);
-        goto endProg;
-        }
+        // myftStatus = FT_SetFlowControl(Handle1, FT_FLOW_RTS_CTS, 0, 0);
+        // if (!FT_SUCCESS(myftStatus)){
+        // printf("error #%i while setting flow control\n", myftStatus);
+        // goto endProg;
+        // }
     }
     // printEEPdata(Handle1);
     
     // printf("");
     printf("Trying to receive bytes\n");
     
-    while(numBytes < 1024 * 1024 * 512 * sizeof(char)){
+    while(numBytes < total_size){
             if (stop) {
                 printf("Reception interrupted by user.\n");
                 break; // Выход из цикла при установке флага
             }
-            myftStatus = FT_GetStatus(Handle1, &rxBytes, &txBytes, &EventWord);
-            // printf("available %lu bytes\n", txBytes);
+            // myftStatus = FT_GetStatus(Handle1, &rxBytes, &txBytes, &EventWord);
+            myftStatus = FT_GetQueueStatus(Handle1, &rxBytes);
+            // printf("available %lu bytes\n", rxBytes);
             if ( (FT_SUCCESS(myftStatus)) && (rxBytes >= PacketSize) ){
                 
-                // myftStatus = FT_Write(Handle1, rxBuffer, rxBytes, BytesReceived);
                 myftStatus = FT_Read(Handle1, rxBuffer, rxBytes, BytesReceived);
-                
-                // if ( !(FT_SUCCESS(myftStatus)) ){
-                //     printf("error #%i while reading data from buffer\n", myftStatus);
-                //     break;
-                //     //return 1;
-                // }
-                // else{
                     // NumWrite = fwrite(rxBuffer, sizeof(char), *BytesReceived, fp);
-                    // printf("written %ld bytes, %ld expected", NumWrite, rxBytes);
-                    memcpy(dataBuffer + numBytes, rxBuffer, BytesReceived);
+                    // printf("copied %lu bytes\n", *BytesReceived);
+                    memcpy(dataBuffer + numBytes, rxBuffer, *BytesReceived);
                     numBytes += rxBytes;
-                // }
             }
         
     }
-    NumWrite = fwrite(dataBuffer, sizeof(char), 1024 * 1024 * 512 * sizeof(char), fp);
+    printf("left receiving loop. Saving data...\n");
+    NumWrite = fwrite(dataBuffer, sizeof(char), numBytes, fp);
+    printf("Successfully written %lu bytes\n", NumWrite);
     endProg:
     // CLOSING DEVICE
     myftStatus = FT_Close(Handle1);
-    if (!FT_SUCCESS(myftStatus)){
+    if (!FT_SUCCESS(myftStatus))
         printf("err no %ld while closing device\n", myftStatus);
-    }
     else printf("Device closed successful, code %ld\n", myftStatus);
-    fclose(fp);
-    free(rxBuffer);
 
+
+    fclose(fp);
+    _aligned_free(rxBuffer);
+    _aligned_free(dataBuffer);
     
     return 0;
 }
