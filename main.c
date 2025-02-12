@@ -3,6 +3,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <dos.h>
+#include <windows.h> 
 #include <ftd2xx.h>
 #include <time.h>
 // #include <minwindef.h>
@@ -42,22 +43,26 @@ void handle_sigint(int sig) {
 }
 
 int main(){
+    SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
+
     BytesReceived = (LPDWORD)malloc(sizeof(LPDWORD));
     gotBitMode = (PUCHAR)malloc(sizeof(PUCHAR));
     size_t NumWrite = 0;
     unsigned long int numBytes = 0;
     // Установка обработчика сигнала SIGINT
     signal(SIGINT, handle_sigint);
-    LPVOID rxBuffer   = (LPVOID ) _aligned_malloc(65536 * sizeof(unsigned char)*PacketCoef + 1024, 64);
-    memset(rxBuffer, (unsigned char)0, 65536 * sizeof(unsigned char)*PacketCoef + 1024);
+    LPVOID rxBuffer   = (LPVOID) _aligned_malloc(65536 * sizeof(unsigned char)*PacketCoef + 1024, 64);
     LPVOID dataBuffer = (LPVOID) _aligned_malloc(total_size * sizeof(unsigned char)*PacketCoef + 65536, 64); // буфер
+
+    memset(rxBuffer, (unsigned char)0, 65536 * sizeof(unsigned char)*PacketCoef + 1024);
     memset(dataBuffer, (unsigned char)0, total_size * sizeof(unsigned char)*PacketCoef + 65536);
     
-    if (rxBuffer == NULL) exit(1);
+    if (rxBuffer == NULL || dataBuffer == NULL) exit(1);
     
-    if ((fp = fopen("test.bin", "wb"))==NULL) {
-    printf("Cannot open file.\n");
-    goto endProg;
+    fp = fopen("test.bin", "wb");
+    if (fp == NULL) {
+        printf("Cannot open file.\n");
+        goto endProg;
     }
     
 
@@ -75,44 +80,44 @@ int main(){
 
     printEEPdata(Handle1);
     
-    Mode = 0x00; // reset mode
-    myftStatus = FT_SetBitMode(Handle1, MASK, FT_BITMODE_RESET);
-    if (!FT_SUCCESS(myftStatus)){
+    if (!FT_SUCCESS(FT_SetBitMode(Handle1, MASK, FT_BITMODE_RESET))){
         printf("error #%i while resetting\n", myftStatus);
         goto endProg;
-    }    
+    }
 
     delay(250);
-    Mode = 0x40; // sync FIFO mode
-    myftStatus = FT_SetBitMode(Handle1, MASK, FT_BITMODE_SYNC_FIFO);
-    if (!FT_SUCCESS(myftStatus)){
+
+    if (!FT_SUCCESS(FT_SetBitMode(Handle1, MASK, FT_BITMODE_SYNC_FIFO))){
         printf("error #%i while setting sync FIFO mode\n", myftStatus);
         goto endProg;
     }
     else{
         myftStatus = FT_GetBitMode(Handle1, gotBitMode);
-        // if (!FT_SUCCESS(myftStatus)){
-        //     printf("error #%i while trying to get bitmode\n", myftStatus);
-        // goto endProg;
-        // }
+            if (!FT_SUCCESS(myftStatus)){
+                printf("error #%i while trying to get bitmode\n", myftStatus);
+            goto endProg;
+        }
+        
         printf("received bitmode: %p\n", gotBitMode);
+        
         printf("setting up some options after status %i\n", myftStatus);
-        myftStatus = FT_SetLatencyTimer(Handle1, LatTimer);
-        if (!FT_SUCCESS(myftStatus)){
-        printf("error #%i while setting latency timer\n", myftStatus);
-        goto endProg;
+        
+        // myftStatus = FT_SetLatencyTimer(Handle1, LatTimer);
+        if (!FT_SUCCESS(FT_SetLatencyTimer(Handle1, LatTimer))){
+            printf("error #%i while setting latency timer\n", myftStatus);
+            goto endProg;
         }
 
-        myftStatus = FT_SetTimeouts(Handle1, 1000, 1000);
-        if (!FT_SUCCESS(myftStatus)){
+        // myftStatus = FT_SetTimeouts(Handle1, 1000, 1000);
+        if (!FT_SUCCESS(FT_SetTimeouts(Handle1, 1000, 1000))){
         printf("error #%i while setting timeouts\n", myftStatus);
         goto endProg;
         }
 
-        myftStatus = FT_SetUSBParameters(Handle1, 0x10000, 0x10000); //TODO: ОПРЕДЕЛИТЬСЯ С РАЗМЕРАМИ БУФЕРОВ, МБ ОНИ СЛИШКОМ БОЛЬШИЕ
-        if (!FT_SUCCESS(myftStatus)){
-        printf("error #%i while setting USB parameters\n", myftStatus);
-        goto endProg;
+        // myftStatus = FT_SetUSBParameters(Handle1, 0x10000, 0x10000); //TODO: ОПРЕДЕЛИТЬСЯ С РАЗМЕРАМИ БУФЕРОВ, МБ ОНИ СЛИШКОМ БОЛЬШИЕ
+        if (!FT_SUCCESS(FT_SetUSBParameters(Handle1, 0x10000, 0x10000))){
+            printf("error #%i while setting USB parameters\n", myftStatus);
+            goto endProg;
         }
         // myftStatus = FT_SetFlowControl(Handle1, FT_FLOW_RTS_CTS, 0, 0);
         // if (!FT_SUCCESS(myftStatus)){
@@ -120,9 +125,7 @@ int main(){
         // goto endProg;
         // }
     }
-    // printEEPdata(Handle1);
-    
-    // printf("");
+
     printf("Trying to receive bytes\n");
     
     while(numBytes < total_size){
@@ -131,28 +134,32 @@ int main(){
                 break; // Выход из цикла при установке флага
             }
             // myftStatus = FT_GetStatus(Handle1, &rxBytes, &txBytes, &EventWord);
-            myftStatus = FT_GetQueueStatus(Handle1, &rxBytes);
+            // myftStatus = FT_GetQueueStatus(Handle1, &rxBytes);
             // printf("available %lu bytes\n", rxBytes);
-            if ( (FT_SUCCESS(myftStatus)) && (rxBytes >= PacketSize) ){
+            if ( (FT_SUCCESS(FT_GetQueueStatus(Handle1, &rxBytes))) && (rxBytes >= PacketSize) ){
                 
-                myftStatus = FT_Read(Handle1, rxBuffer, rxBytes, BytesReceived);
+                // myftStatus = 
+                FT_Read(Handle1, dataBuffer + numBytes, rxBytes, BytesReceived);
                     // NumWrite = fwrite(rxBuffer, sizeof(char), *BytesReceived, fp);
                     // printf("copied %lu bytes\n", *BytesReceived);
-                    memcpy(dataBuffer + numBytes, rxBuffer, *BytesReceived);
-                    numBytes += rxBytes;
+                    // memcpy(dataBuffer + numBytes, rxBuffer, *BytesReceived);
+                    // numBytes += rxBytes;
+                    numBytes += *BytesReceived;
             }
-        
+            // else printf("FT !success or rxBytes <= PacketSize");   
     }
+
     printf("left receiving loop. Saving data...\n");
     NumWrite = fwrite(dataBuffer, sizeof(char), numBytes, fp);
     printf("Successfully written %lu bytes\n", NumWrite);
+    
+    
     endProg:
     // CLOSING DEVICE
-    myftStatus = FT_Close(Handle1);
-    if (!FT_SUCCESS(myftStatus))
+    // myftStatus = FT_Close(Handle1);
+    if (!FT_SUCCESS(FT_Close(Handle1)))
         printf("err no %ld while closing device\n", myftStatus);
     else printf("Device closed successful, code %ld\n", myftStatus);
-
 
     fclose(fp);
     _aligned_free(rxBuffer);
@@ -190,8 +197,8 @@ void printEEPdata(FT_HANDLE Handle)
         exit(1);
     }
     
-    myftStatus = FT_EE_Read(Handle, &datastruct);
-    if (!FT_SUCCESS(myftStatus)){
+    // myftStatus = FT_EE_Read(Handle, &datastruct);
+    if (!FT_SUCCESS(FT_EE_Read(Handle, &datastruct))){
         printf("error #%i while reading EEPROM\n", myftStatus);
         exit(1);
     }
