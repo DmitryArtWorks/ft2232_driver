@@ -45,49 +45,12 @@ void handle_sigint(int sig) {
 int main(){
     SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
 
-
-    // FT_HANDLE ftHandleTemp;
-    // DWORD numDevs;
-    // DWORD Flags;
-    // DWORD ID;
-    // DWORD Type;
-    // DWORD LocId;
-    // char SerialNumber[16];
-    // char Description[64];
-    // // create the device information list
-    // myftStatus = FT_CreateDeviceInfoList(&numDevs);
-    // if (myftStatus == FT_OK) 
-    //     printf("Number of devices is %d\n",numDevs);
-    
-    
-    //     for (size_t i = 0; i < numDevs; i++){
-    //         // get information for device 0
-    //         myftStatus = FT_GetDeviceInfoDetail(i, &Flags, &Type, &ID, &LocId, SerialNumber,
-    //         Description, &ftHandleTemp);
-    //         if (myftStatus == FT_OK) {
-    //             printf("Dev %d:\n", i);
-    //             printf(" Flags=0x%x\n",Flags);
-    //             printf(" Type=0x%x\n",Type);
-    //             printf(" ID=0x%x\n",ID);
-    //             printf(" LocId=0x%x\n",LocId);
-    //             printf(" SerialNumber=%s\n",SerialNumber);
-    //             printf(" Description=%s\n",Description);
-    //             printf(" ftHandle=0x%x\n",ftHandleTemp);
-    //         }
-    //     }
-    // return 0;
-        
-
-
-
-
-
-
     BytesReceived = (LPDWORD)malloc(sizeof(LPDWORD));
     gotBitMode = (PUCHAR)malloc(sizeof(PUCHAR));
     size_t NumWrite = 0;
     unsigned long int numBytes = 0;
-    // Установка обработчика сигнала SIGINT
+    
+    // Установка обработчика сигнала SIGINT (чтобы по Ctrl+C выходить из приёмного цикла. Придумано нейронкой)
     signal(SIGINT, handle_sigint);
     LPVOID rxBuffer   = (LPVOID) _aligned_malloc(65536 * sizeof(unsigned char)*PacketCoef + 1024, 64);
     LPVOID dataBuffer = (LPVOID) _aligned_malloc(total_size * sizeof(unsigned char)*PacketCoef + 65536, 64); // буфер
@@ -104,12 +67,11 @@ int main(){
     }
     
 
-    myftStatus = FT_OpenEx("FT9MR6CDA", FT_OPEN_BY_SERIAL_NUMBER, &Handle1);
+    myftStatus = FT_OpenEx("FT9MR6CDA", FT_OPEN_BY_SERIAL_NUMBER, &Handle1); // Открытие по серийнику. Иначе конфликты с программатором ПЛИС (он тоже на FTDI сделан)
     if (!FT_SUCCESS(myftStatus)){
         printf("err no %ld while opening device\n", myftStatus);
         goto endProg;
     }
-    else printf("Device opened successful, code %ld\n", myftStatus);
     
 
     // // // // // // // //
@@ -134,29 +96,28 @@ int main(){
             if (!FT_SUCCESS(myftStatus)){
                 printf("error #%i while trying to get bitmode\n", myftStatus);
             goto endProg;
-        }
+            }
         
         printf("received bitmode: %p\n", gotBitMode);
         
         printf("setting up some options after status %i\n", myftStatus);
         
-        // myftStatus = FT_SetLatencyTimer(Handle1, LatTimer);
         if (!FT_SUCCESS(FT_SetLatencyTimer(Handle1, LatTimer))){
             printf("error #%i while setting latency timer\n", myftStatus);
             goto endProg;
         }
 
-        // myftStatus = FT_SetTimeouts(Handle1, 1000, 1000);
         if (!FT_SUCCESS(FT_SetTimeouts(Handle1, 1000, 1000))){
         printf("error #%i while setting timeouts\n", myftStatus);
         goto endProg;
         }
 
-        // myftStatus = FT_SetUSBParameters(Handle1, 0x10000, 0x10000); //TODO: ОПРЕДЕЛИТЬСЯ С РАЗМЕРАМИ БУФЕРОВ, МБ ОНИ СЛИШКОМ БОЛЬШИЕ
         if (!FT_SUCCESS(FT_SetUSBParameters(Handle1, 0x10000, 0x10000))){
             printf("error #%i while setting USB parameters\n", myftStatus);
             goto endProg;
         }
+        
+        // Настройка была отключена, ибо она только для UART как я понял
         // myftStatus = FT_SetFlowControl(Handle1, FT_FLOW_RTS_CTS, 0, 0);
         // if (!FT_SUCCESS(myftStatus)){
         // printf("error #%i while setting flow control\n", myftStatus);
@@ -169,22 +130,13 @@ int main(){
     while(numBytes < total_size){
             if (stop) {
                 printf("Reception interrupted by user.\n");
-                break; // Выход из цикла при установке флага
+                break; // Выход из цикла по Ctrl+C
             }
-            // myftStatus = FT_GetStatus(Handle1, &rxBytes, &txBytes, &EventWord);
-            // myftStatus = FT_GetQueueStatus(Handle1, &rxBytes);
-            // printf("available %lu bytes\n", rxBytes);
             if ( (FT_SUCCESS(FT_GetQueueStatus(Handle1, &rxBytes))) && (rxBytes >= PacketSize) ){
-                
-                // myftStatus = 
+                // myftStatus = // Раскоммент, если оч хочется проверить статус
                 FT_Read(Handle1, dataBuffer + numBytes, rxBytes, BytesReceived);
-                    // NumWrite = fwrite(rxBuffer, sizeof(char), *BytesReceived, fp);
-                    // printf("copied %lu bytes\n", *BytesReceived);
-                    // memcpy(dataBuffer + numBytes, rxBuffer, *BytesReceived);
-                    // numBytes += rxBytes;
-                    numBytes += *BytesReceived;
+                numBytes += *BytesReceived;
             }
-            // else printf("FT !success or rxBytes <= PacketSize");   
     }
 
     printf("left receiving loop. Saving data...\n");
@@ -194,7 +146,6 @@ int main(){
     
     endProg:
     // CLOSING DEVICE
-    // myftStatus = FT_Close(Handle1);
     if (!FT_SUCCESS(FT_Close(Handle1)))
         printf("err no %ld while closing device\n", myftStatus);
     else printf("Device closed successful, code %ld\n", myftStatus);
@@ -235,7 +186,6 @@ void printEEPdata(FT_HANDLE Handle)
         exit(1);
     }
     
-    // myftStatus = FT_EE_Read(Handle, &datastruct);
     if (!FT_SUCCESS(FT_EE_Read(Handle, &datastruct))){
         printf("error #%i while reading EEPROM\n", myftStatus);
         exit(1);
