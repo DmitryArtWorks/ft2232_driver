@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
-#include <dos.h>
-#include <windows.h> 
+// #include <dos.h>
+#include <string.h>
 #include <ftd2xx.h>
 #include <time.h>
 // #include <minwindef.h>
@@ -43,7 +43,6 @@ void handle_sigint(int sig) {
 }
 
 int main(){
-    SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
 
     BytesReceived = (LPDWORD)malloc(sizeof(LPDWORD));
     gotBitMode = (PUCHAR)malloc(sizeof(PUCHAR));
@@ -51,8 +50,9 @@ int main(){
     unsigned long int numBytes = 0;
     // Установка обработчика сигнала SIGINT
     signal(SIGINT, handle_sigint);
-    LPVOID rxBuffer   = (LPVOID) _aligned_malloc(65536 * sizeof(unsigned char)*PacketCoef + 1024, 64);
-    LPVOID dataBuffer = (LPVOID) _aligned_malloc(total_size * sizeof(unsigned char)*PacketCoef + 65536, 64); // буфер
+    
+    LPVOID rxBuffer   = (LPVOID) aligned_alloc(64, 65536 * sizeof(unsigned char)*PacketCoef + 1024);
+    LPVOID dataBuffer = (LPVOID) aligned_alloc(64, total_size * sizeof(unsigned char)*PacketCoef + 65536); // буфер
 
     memset(rxBuffer, (unsigned char)0, 65536 * sizeof(unsigned char)*PacketCoef + 1024);
     memset(dataBuffer, (unsigned char)0, total_size * sizeof(unsigned char)*PacketCoef + 65536);
@@ -68,10 +68,10 @@ int main(){
 
     myftStatus = FT_Open(0, &Handle1);
     if (!FT_SUCCESS(myftStatus)){
-        printf("err no %ld while opening device\n", myftStatus);
+        printf("err no %u while opening device\n", myftStatus);
         goto endProg;
     }
-    else printf("Device opened successful, code %ld\n", myftStatus);
+    else printf("Device opened successful, code %u\n", myftStatus);
     
 
     // // // // // // // //
@@ -135,13 +135,13 @@ int main(){
             }
             // myftStatus = FT_GetStatus(Handle1, &rxBytes, &txBytes, &EventWord);
             // myftStatus = FT_GetQueueStatus(Handle1, &rxBytes);
-            // printf("available %lu bytes\n", rxBytes);
+            // printf("available %u bytes\n", rxBytes);
             if ( (FT_SUCCESS(FT_GetQueueStatus(Handle1, &rxBytes))) && (rxBytes >= PacketSize) ){
                 
                 // myftStatus = 
                 FT_Read(Handle1, dataBuffer + numBytes, rxBytes, BytesReceived);
                     // NumWrite = fwrite(rxBuffer, sizeof(char), *BytesReceived, fp);
-                    // printf("copied %lu bytes\n", *BytesReceived);
+                    // printf("copied %u bytes\n", *BytesReceived);
                     // memcpy(dataBuffer + numBytes, rxBuffer, *BytesReceived);
                     // numBytes += rxBytes;
                     numBytes += *BytesReceived;
@@ -158,12 +158,12 @@ int main(){
     // CLOSING DEVICE
     // myftStatus = FT_Close(Handle1);
     if (!FT_SUCCESS(FT_Close(Handle1)))
-        printf("err no %ld while closing device\n", myftStatus);
-    else printf("Device closed successful, code %ld\n", myftStatus);
+        printf("err no %u while closing device\n", myftStatus);
+    else printf("Device closed successful, code %u\n", myftStatus);
 
     fclose(fp);
-    _aligned_free(rxBuffer);
-    _aligned_free(dataBuffer);
+    free(rxBuffer);
+    free(dataBuffer);
     
     return 0;
 }
