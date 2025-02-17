@@ -45,6 +45,44 @@ void handle_sigint(int sig) {
 int main(){
     SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
 
+
+    // FT_HANDLE ftHandleTemp;
+    // DWORD numDevs;
+    // DWORD Flags;
+    // DWORD ID;
+    // DWORD Type;
+    // DWORD LocId;
+    // char SerialNumber[16];
+    // char Description[64];
+    // // create the device information list
+    // myftStatus = FT_CreateDeviceInfoList(&numDevs);
+    // if (myftStatus == FT_OK) 
+    //     printf("Number of devices is %d\n",numDevs);
+    
+    
+    //     for (size_t i = 0; i < numDevs; i++){
+    //         // get information for device 0
+    //         myftStatus = FT_GetDeviceInfoDetail(i, &Flags, &Type, &ID, &LocId, SerialNumber,
+    //         Description, &ftHandleTemp);
+    //         if (myftStatus == FT_OK) {
+    //             printf("Dev %d:\n", i);
+    //             printf(" Flags=0x%x\n",Flags);
+    //             printf(" Type=0x%x\n",Type);
+    //             printf(" ID=0x%x\n",ID);
+    //             printf(" LocId=0x%x\n",LocId);
+    //             printf(" SerialNumber=%s\n",SerialNumber);
+    //             printf(" Description=%s\n",Description);
+    //             printf(" ftHandle=0x%x\n",ftHandleTemp);
+    //         }
+    //     }
+    // return 0;
+        
+
+
+
+
+
+
     BytesReceived = (LPDWORD)malloc(sizeof(LPDWORD));
     gotBitMode = (PUCHAR)malloc(sizeof(PUCHAR));
     size_t NumWrite = 0;
@@ -66,7 +104,7 @@ int main(){
     }
     
 
-    myftStatus = FT_Open(0, &Handle1);
+    myftStatus = FT_OpenEx("FT9MR6CDA", FT_OPEN_BY_SERIAL_NUMBER, &Handle1);
     if (!FT_SUCCESS(myftStatus)){
         printf("err no %ld while opening device\n", myftStatus);
         goto endProg;
@@ -78,7 +116,7 @@ int main(){
     // CODE STARTS HERE  // 
     // // // // // // // //
 
-    printEEPdata(Handle1);
+    // printEEPdata(Handle1);
     
     if (!FT_SUCCESS(FT_SetBitMode(Handle1, MASK, FT_BITMODE_RESET))){
         printf("error #%i while resetting\n", myftStatus);
