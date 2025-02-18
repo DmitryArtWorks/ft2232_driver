@@ -1,4 +1,7 @@
-/build/**
-main_file.exe
-test.bin
-/.vscode/**
+build/**
+*.bin
+*.o
+*.exe
+*.log
+.vscode/
+.idea/
